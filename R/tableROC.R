@@ -34,3 +34,11 @@ tableROC <- function(X,
   return(table_out)
 
 }
+
+
+
+
+test <- PLASMA %>% filter(Index == 6)
+
+
+
