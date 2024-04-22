@@ -15,6 +15,9 @@
 #' N <- list(1,2,3,4,5)
 #' target = "y"
 #' COMB_L <- comb_fun(n = N, list_vars = vars, target = "y")
+
+
+
 comb_fun <- function(n, list_vars, target){
 
   #N <- 5
