@@ -38,7 +38,7 @@ tableROC <- function(X,
 
 
 
-test <- PLASMA %>% filter(Index == 6)
+#test <- PLASMA %>% filter(Index == 6)
 
 
 
