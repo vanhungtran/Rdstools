@@ -10,7 +10,7 @@ output:
     css: custom.css
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{Scientific Journal and Sci-Fi Themed Color Palettes for ggplot2}
+  %\VignetteIndexEntry{R package for Biomarkers}
 ---
 
 ```{r, include=FALSE}
