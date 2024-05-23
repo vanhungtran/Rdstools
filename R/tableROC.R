@@ -11,8 +11,37 @@
 #' @examples
 tableROC <- function(X,
                      y,
+                     group,
                      round.digit = 4,
                      rank = FALSE) {
+
+
+
+  if (is(X, "dgeMatrix")) X <- as.matrix(X)
+  if (is(X, "data.frame")) X <- as.matrix(X)
+  if (is(X, "dgTMatrix")) X <- as(X, "dgCMatrix")
+  if (is(X, "TsparseMatrix")) X <- as(X, "dgCMatrix")
+  if (ncol(X) != length(y)) stop("number of columns of X does not
+                                match length of y")
+
+
+
+
+  if (!is.null(groups)) {
+    idx <- which(y %in% intersect(groups, y))
+    y <- y[idx]
+    X <- X[, idx]
+  }
+
+  y <- factor(y)
+  idx <- which(!is.na(y))
+  if (length(idx) < length(y)) {
+    y <- y[idx]
+    X <- X[, idx]
+    if (verbose)
+      message("Removing NA values from labels")
+  }
+
 
   X1 <- dplyr::select_if(X, is.numeric)
   roc1 <- list()

@@ -1,0 +1,234 @@
+---
+title: "Generate Univariate - Multivariate Table fromn outputs of Multimodal Logistic Regression Model"
+output:
+  rmarkdown::html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    number_sections: false
+    highlight: "textmate"
+    css: custom.css
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{Scientific Journal and Sci-Fi Themed Color Palettes for ggplot2}
+---
+
+```{r, include=FALSE}
+knitr::knit_hooks$set(pngquant = knitr::hook_pngquant)
+
+knitr::opts_chunk$set(
+  message = FALSE,
+  collapse = TRUE,
+  comment = "#>",
+  dev = "ragg_png",
+  dpi = 72,
+  fig.retina = 2,
+  out.height = "100%", 
+  out.width = "\\textwidth",
+  out.extra = "keepaspectratio=false",
+  fig.align = "center",
+  out.width = "100%",
+  pngquant = "--speed=1 --quality=50"
+)
+```
+
+## Data
+```{r, echo = FALSE}
+
+# https://larmarange.github.io/guide-R/analyses_avancees/regression-logistique-multinomiale.html
+library(nnet)
+# install.packages("gtsummary")
+library(gtsummary)
+#> #BlackLivesMatter
+library(tidyverse)
+library(magrittr)
+#simulated data
+
+load("C:/PROJECTS1/PROG/Rdstools/data/ST.RData")
+ST$EASI <- ST$t0_fw_easi_tot
+ST$AD <- ifelse(ST$t0_AD == "Yes", 1, 0)
+ST <- ST %>% dplyr::select("Gender", "Agegroup", "BMIgroup", "Education", "Smoking", "SCORADSeverity", "EASI", "AD")
+
+DT::datatable(ST)
+
+```
+
+
+
+
+```{r}
+# https://epirhandbook.com/en/univariate-and-multivariable-regression.html
+explanatory_vars  <- c("Gender", "Agegroup", "BMIgroup", "Education", "Smoking")
+outcome = "AD"
+univ_tab <- ST %>% 
+  dplyr::select(explanatory_vars, outcome) %>% ## select variables of interest
+
+  tbl_uvregression(                         ## produce univariate table
+    method = glm,                           ## define regression want to run (generalised linear model)
+    y = outcome,                            ## define outcome variable
+    method.args = list(family = binomial),  ## define what type of glm want to run (logistic)
+    exponentiate = TRUE                     ## exponentiate to produce odds ratios (rather than log odds)
+  )
+
+## view univariate results table 
+univ_tab
+```
+
+
+
+
+
+
+
+
+
+
+## Univariate Table
+```{r}
+multinom_pivot_wider <- function(x) {
+  # check inputs match expectatations
+  if (!inherits(x, "tbl_regression") &
+      !inherits(x$model_obj, "multinom") & !inherits(x, "tbl_stack")) {
+    stop("`x=` must be class 'tbl_regression' summary of a `nnet::multinom()` model.")
+  }
+
+  # create tibble of results
+  df <-
+    tibble::tibble(outcome_lev = unique(x$table_body$groupname_col))
+  df$tbl <-
+    purrr::map(df$outcome_lev,
+               function(k) {
+                 gtsummary::modify_table_body(
+                   x,
+                   ~ dplyr::filter(.x, groupname_col %in% k) %>%
+                     dplyr::ungroup() %>%
+                     dplyr::select(-groupname_col)
+                 )
+               })
+
+  tbl_merge(df$tbl, tab_spanner = paste0("**", df$outcome_lev, "**"))
+}
+
+
+
+ivars = c("Gender", "Agegroup", "BMIgroup", "Education", "Smoking")
+formulae <- lapply(ivars, function(x) reformulate(x, response="SCORADSeverity"))
+test <- lapply(formulae, function(x) tbl_regression(do.call("multinom", list(x, quote(ST))), exponentiate = TRUE))
+Tab_uni <- tbl_stack(test) %>%
+  multinom_pivot_wider()
+
+
+
+mod <- nnet::multinom(reformulate(ivars, response="SCORADSeverity"), data = ST)
+
+
+for (j in (1:5)){
+  paste0(c("estimate_", "ci_", "p.value_"), j)
+}
+
+
+# Tab_uni <- Mod6 %>%
+#   multinom_pivot_wider()
+
+
+Tab_uni <- Tab_uni %>%
+  modify_spanning_header(
+    paste0(c("estimate_", "ci_", "p.value_"), 1) ~
+      "**moderate/mild**",
+    paste0(c("estimate_", "ci_", "p.value_"), 2) ~
+      "**severe/mild**"
+
+
+  )
+
+
+Tab_uni
+
+
+
+
+
+```
+
+## Multivariate 
+```{r}
+Tab_mul = mod %>% tbl_regression(exponentiate = TRUE) %>%
+  multinom_pivot_wider() |>
+  modify_spanning_header(
+    paste0(c("estimate_", "ci_", "p.value_"), 1) ~
+      "**moderate/mild**",
+    paste0(c("estimate_", "ci_", "p.value_"), 2) ~
+      "**severe/mild**"
+  )
+
+
+
+Tab_mul
+
+```
+## Combine Table
+
+```{r}
+TAB  <-
+  tbl_merge(tbls = list(Tab_uni, Tab_mul)) |>
+
+  modify_spanning_header(
+    list(
+      c(all_stat_cols(), estimate_1_1, ci_1_1, p.value_1_1) ~ "**moderate/mild**",
+      c(all_stat_cols(), estimate_2_1, ci_2_1, p.value_2_1) ~ "**severe/mild**",
+      c(all_stat_cols(), estimate_1_2, ci_1_2, p.value_1_2) ~ "**moderate/mild**",
+      c(all_stat_cols(), estimate_2_2, ci_2_2, p.value_2_2) ~ "**severe/mild**"
+    )
+  ) %>%   as_gt() |>
+  gt::tab_spanner(
+    label =  gt::md("**Univariate**"),
+    columns = ends_with("_1") ,
+    level = 2
+  ) |>
+  gt::tab_spanner(
+    label =  gt::md("**Multivariate**"),
+    columns = ends_with("_2"),
+    level = 2
+  )
+
+
+TAB
+```
+
+
+```{r}
+mod |> 
+    ggstats::ggcoef_multinom(
+        exponentiate = TRUE
+    )
+```
+
+
+```{r}
+mod |> 
+  ggstats::ggcoef_multinom(
+    type = "faceted",
+    exponentiate = TRUE
+  )
+```
+
+
+```{r}
+mod |> 
+  ggstats::ggcoef_multinom(
+    type = "table",
+    exponentiate = TRUE
+  )
+```
+
+
+```{r}
+mod |> 
+  broom.helpers::plot_marginal_predictions() |> 
+  patchwork::wrap_plots(ncol = 1) &
+  scale_y_continuous(labels = scales::percent, limits = c(0, .8)) &
+  coord_flip()
+```
+
+
+
